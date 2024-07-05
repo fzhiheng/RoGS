@@ -4,7 +4,7 @@
     <!-- project badges -->
     <a href="https://github.com/fzhiheng/RoGS.git"><img src="https://img.shields.io/badge/Project-Page-ffa"/></a>
     <!-- paper badges -->
-    <a href="https://github.com/fzhiheng/RoGS.git">
+    <a href="https://arxiv.org/abs/2405.14342">
         <img src='https://img.shields.io/badge/arXiv-Page-aff'>
     </a>
 </p>
