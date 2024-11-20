@@ -10,15 +10,10 @@ dataset:
   road_gt_dir: /dataset/nuscenes/nuScenes_road_gt
   replace_name: False
   clip_list:
-     - "scene-0856"
-    # - "scene-0063"
-    # - "scene-0064"
-    # - "scene-0200"
-    # - "scene-0283"
-#    - "scene-0109"
-#    - "scene-0508"
-#    - "scene-0523"
-#    - "scene-0821"
+    - "scene-0856"
+
+  min_distance: 0.2
+
 
   # resized image size
   image_width: 800
@@ -38,15 +33,17 @@ train:
   detect_anomaly: False
   start_checkpoint: ""
   eval: True
+  save: False
 
 model:
   bev_resolution: 0.05 # meters
-  cut_range: 7  # 7.5 for scene2
+  cut_range: 8  # 7.5 for scene2
   sh_degree: 3
   use_rgb: True
   use_label: True
   opt_xy: False
   white_background: False
+  use_exposure: True
 
 optimization:
   epochs: 2
@@ -64,7 +61,7 @@ optimization:
   exposure_lr: 0.001
   
   seg_loss_weight: 0.06
-  smooth_loss_weight: 1
+  smooth_loss_weight: 0.003 # 1 if z_weight > 0
   depth_loss_weight: 0
   z_weight: 0
 

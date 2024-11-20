@@ -235,7 +235,6 @@ class NuscDataset(BaseDataset):
             self.lidar_filenames_all.extend(lidar_info["filenames"])
             self.lidar2world_all.extend(lidar_info["poses"])
 
-
             point_gt_path = os.path.join(configs["road_gt_dir"], f"{scene_name}.ply")
             xyz, rgb, label = self.load_gt_points(point_gt_path)
             road_pointcloud[scene_name] = {"xyz": xyz, "rgb": rgb, "label": label}

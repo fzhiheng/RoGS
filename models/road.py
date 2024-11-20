@@ -46,7 +46,16 @@ def create_hive_vertices(min_coords, max_coords, resolution=0.1):
     return vertices, (num_vertices_x, num_vertices_y), (x_resolution, y_resolution)
 
 
-def create_raw_point_plane(min_coords, max_coords, resolution=1):
+def create_rect_vertices(min_coords, max_coords, resolution=0.1):
+    """
+    # 初始化一个矩形点云平面
+    Args:
+    # min_coords: 矩形左下顶点
+    # max_coords: 矩形右上顶点
+    # resolution: 分辨率
+    Returns:
+        点云平面,形状
+    """
     box = max_coords - min_coords
     x_length = box[0]
     y_length = box[1]
@@ -60,7 +69,6 @@ def create_raw_point_plane(min_coords, max_coords, resolution=1):
     vertices = vertices.reshape(-1, 3)
 
     return vertices, (num_vertices_x, num_vertices_y), (resolution, resolution)
-
 
 def cut_point_by_pose(vertices, vertices_shape, xy_resolution, min_coords, poses_xy, resolution=1.0, cut_range=3.0):
     """
@@ -170,7 +178,8 @@ class Road(object):
         self.bev_y_length = box[1]
 
         # (N, 3) (num_x, num_y)
-        vertices, self.bev_size_pixel, xy_resolution = create_hive_vertices(min_coords, max_coords, self.resolution)
+        # vertices, self.bev_size_pixel, xy_resolution = create_hive_vertices(min_coords, max_coords, self.resolution)
+        vertices, self.bev_size_pixel, xy_resolution = create_rect_vertices(min_coords, max_coords, self.resolution)
         print(f"Before cutting,  {vertices.shape[0]} vertices")
 
         # (M, 3)
