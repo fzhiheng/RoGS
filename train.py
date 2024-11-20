@@ -28,13 +28,13 @@ from diff_gaussian_rasterization.scene.cameras import PerspectiveCamera
 
 from utils.logging import create_logger
 from utils.image import render_semantic
-from utils.render import render, render_label
+from utils.render import render, render_blocks
 from utils.visualizer import loss2color, depth2color, CustomPointVisualizer
 from models.road import Road
 from models.loss import L1MaskedLoss, CELossWithMask
 from models.exposure_model import ExposureModel
 from models.gaussian_model import GaussianModel2D
-from eval import eval_bev_metric, eval_z_metric
+from evalution import eval_bev_metric, eval_z_metric
 
 
 def set_randomness(seed):
@@ -260,7 +260,7 @@ def train(configs):
                 gt_seg = sample["label"]
                 # 转为long类型
                 gt_seg = gt_seg.long()
-                label_feature = render_label(viewpoint_cam, gaussians, pipe, bg)
+                label_feature = render(viewpoint_cam, gaussians, pipe, bg, render_type="label")
                 render_seg = label_feature["render"]
                 render_seg = render_seg.permute(1, 2, 0)
                 seg_loss = CE_loss_with_mask(render_seg.reshape(-1, render_seg.shape[-1]), gt_seg.reshape(-1), loss_mask.reshape(-1)) * opt.seg_loss_weight
@@ -369,12 +369,10 @@ def train(configs):
             cv2.imwrite(os.path.join(current_root, f"render_depth_vis.png"), vis_render_depth)
 
             # ==============> BEV render
-            # TODO for very large scene, should render chunk by chunk
-            bev_pkg = render(bev_cam, gaussians, pipe, bg)
+            bev_pkg = render_blocks(bev_cam, gaussians, pipe, bg, render_type="rgb")
             src_bev_image, bev_depth, bev_mask = bev_pkg["render"], bev_pkg["depth"], bev_pkg["mask"]
 
             # ===> mask
-            bev_mask = bev_mask.cpu().numpy()
             bev_mask = bev_mask.astype(np.uint8)
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
             bev_mask = cv2.erode(bev_mask, kernel)
@@ -382,8 +380,7 @@ def train(configs):
             cv2.imwrite(os.path.join(current_root, f"bev_mask.png"), bev_mask * 255)
 
             # ===> height
-            bev_height = bev_cam_height - bev_depth
-            bev_height = bev_height[0].detach().cpu().numpy()
+            bev_height = bev_cam_height.item() - bev_depth[0]
             if train_cfg.save:
                 if bev_mask.sum() < 0.3 * bev_mask.size:
                     bev_height[~bev_mask] = 0
@@ -399,27 +396,24 @@ def train(configs):
 
             # ===> rbg
             if model_cfg.use_exposure:
-                bev_image = exposure_model(0, src_bev_image)
+                bev_image = exposure_model.apply_numpy(0, src_bev_image)
             else:
                 bev_image = src_bev_image
-
-            bev_image = bev_image.permute(1, 2, 0)
-            bev_image = bev_image.detach().cpu().numpy() * 255
+            bev_image = (bev_image.transpose(1, 2, 0) * 255).astype(np.uint8)
             bev_image = cv2.cvtColor(bev_image.astype(np.uint8), cv2.COLOR_RGB2BGRA)
             bev_image[~bev_mask] = 0
             cv2.imwrite(os.path.join(current_root, f"bev_image.png"), bev_image)
 
-            src_bev_image = src_bev_image.permute(1, 2, 0)
-            src_bev_image = src_bev_image.detach().cpu().numpy() * 255
-            src_bev_image = cv2.cvtColor(src_bev_image.astype(np.uint8), cv2.COLOR_RGB2BGRA)
+            src_bev_image = (src_bev_image.transpose(1, 2, 0) * 255).astype(np.uint8)
+            src_bev_image = cv2.cvtColor(src_bev_image, cv2.COLOR_RGB2BGRA)
             src_bev_image[~bev_mask] = 0
             cv2.imwrite(os.path.join(current_root, f"bev_scr_image.png"), src_bev_image)
 
             # ===> semantic
             if OPT_SEG:
-                label_feature = render_label(bev_cam, gaussians, pipe, bg)
-                bev_label = label_feature["render"].permute(1, 2, 0)  # (H, W, C)
-                bev_label = np.argmax(bev_label.detach().cpu().numpy(), axis=-1)  # (H, W)
+                label_feature = render_blocks(bev_cam, gaussians, pipe, bg, render_type="label")
+                bev_label = label_feature["render"].transpose(1, 2, 0)
+                bev_label = np.argmax(bev_label, axis=-1)  # (H, W)
                 vis_bev_label = render_semantic(bev_label, dataset.filted_color_map)
                 vis_bev_label = cv2.cvtColor(vis_bev_label, cv2.COLOR_RGB2BGRA)
                 vis_bev_label[~bev_mask] = 0

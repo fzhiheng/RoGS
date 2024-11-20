@@ -158,6 +158,25 @@ class GaussianModel2D(object):
         if self.active_sh_degree < self.max_sh_degree:
             self.active_sh_degree += 1
 
+    def get_scaling_mask(self, mask):
+        scale_xy = self.scaling_activation(self._scaling_xy[mask])
+        return torch.cat((scale_xy, torch.zeros_like(scale_xy[:, :1])), dim=-1)
+    def get_rotation_mask(self, mask):
+        return self.rotation_activation(self._rotation[mask])
+
+    def get_rgb_mask(self, mask):
+        return self.rgb_activation(self._rgb[mask])
+
+    def get_opacity_mask(self, mask):
+        return self.opacity_activation(self._opacity[mask])
+
+    def get_label_mask(self, mask):
+        return self.label_activation(self._label[mask], dim=-1)
+
+    def get_covariance_mask(self, mask, scaling_modifier=1):
+        return self.covariance_activation(self.get_scaling_mask(mask), scaling_modifier, self._rotation[mask])
+
+
     def init_2d_gaussian(self, xyz: torch.Tensor, rotation: torch.Tensor, rgb: torch.Tensor, label: torch.Tensor, resolution, ref_pose, spatial_lr_scale: float):
         """
 

@@ -9,7 +9,7 @@ from pytorch3d.ops import ball_query, knn_points
 from pytorch3d.ops.utils import masked_gather
 from diff_gaussian_rasterization.scene.cameras import PerspectiveCamera
 
-from utils.render import render, render_label
+from utils.render import render
 from utils.metrics import eval_metrics
 from utils.image import render_semantic
 from models.loss import MESMaskedLoss
@@ -59,7 +59,7 @@ def eval_metric(gaussians, exposure_model, dataset, bg_color, pipe, eval_root=No
             render_image = render_image.permute(1, 2, 0)
             mask = mask * valid_mask.float()
 
-            label_feature = render_label(viewpoint_cam, gaussians, pipe, bg_color)
+            label_feature = render(viewpoint_cam, gaussians, pipe, bg_color, render_type="label")
             render_seg = label_feature["render"]
             render_seg = render_seg.permute(1, 2, 0)
 
