@@ -52,14 +52,14 @@ git clone https://github.com/fzhiheng/RoGS.git
 
    ```bash
    git clone --recursive https://github.com/fzhiheng/diff-gs-depth-alpha.git diff-gs-label && cd diff-gs-label
-   mv diff_gaussian_rasterization diff-gs-label
+   mv diff_gaussian_rasterization diff_gs_label
    
    # follow the instructions below to modify the file
    
    python setup.py install
    ```
 
-   Set `NUM_CHANNELS` in file `cuda_rasterizer/config.h` to `num_class` ( 7 for nuScenes and 5 for KITTI) and change all `diff_gaussian_rasterization` in `setup.py`  to `diff-gs-label`.    On the dataset KITTI, we changed the name of the library to `diff-gs-label2` .  In practice,  you can set `NUM_CHANNELS` according to the category of your semantic segmentation and change the name of the library.
+   Set `NUM_CHANNELS` in file `cuda_rasterizer/config.h` to `num_class` ( 7 for nuScenes and 5 for KITTI) and change all `diff_gaussian_rasterization` in `setup.py`  to `diff_gs_label`.    On the dataset KITTI, we changed the name of the library to `diff_gs_label2` .  In practice,  you can set `NUM_CHANNELS` according to the category of your semantic segmentation and change the name of the library.
 
 
 
