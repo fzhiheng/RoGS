@@ -1,4 +1,4 @@
-# RoGS: Large Scale Road Surface Reconstruction based on 2D Gaussian Splatting
+# RoGs: Large Scale Road Surface Reconstruction with Meshgrid Gaussian
 
 <p align="center">
     <!-- project badges -->
@@ -17,7 +17,7 @@
 
 ## Setup
 
-Tested with Pytorch 1.12.1 and CUDA 11.6 and Pytoch3d 0.7.1
+Tested with Pytorch 1.13.1 and CUDA 11.7 and Pytoch3d 0.7.8
 
 ### Clone the repo.
 
@@ -28,9 +28,9 @@ git clone https://github.com/fzhiheng/RoGS.git
 ### Environment setup 
 
 1. ```bash
-   conda create -n rogs python=3.7 -y
+   conda create -n rogs python=3.8.10 -y
    conda activate rogs
-   pip install torch==1.12.1+cu116 torchvision==0.13.1+cu116 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu116
+   pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
    pip install addict PyYAML tqdm scipy pytz plyfile opencv-python pyrotation pyquaternion nuscenes-devkit
    ```
 
