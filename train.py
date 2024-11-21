@@ -27,7 +27,7 @@ from torch.utils.data import DataLoader
 from diff_gaussian_rasterization.scene.cameras import PerspectiveCamera
 
 from utils.logging import create_logger
-from utils.image import render_semantic
+from utils.image import render_semantic, remap_semantic
 from utils.render import render, render_blocks
 from utils.visualizer import loss2color, depth2color, CustomPointVisualizer
 from models.road import Road
@@ -55,11 +55,8 @@ def get_configs():
     return configs
 
 
-def gt_render(dataset, min_xy, max_xy, bev_cam_height, wh=None, resolution=None, save_root=None, device="cuda:0"):
+def gt_render(road_pointcloud, remap_table, render_table, min_xy, max_xy, bev_cam_height, wh=None, resolution=None, save_root=None, device="cuda:0"):
     gt_bev_visualizer = CustomPointVisualizer(device, min_xy, max_xy, bev_cam_height, wh=wh, resolution=resolution)
-    road_pointcloud = dataset.road_pointcloud
-    for key, value in road_pointcloud.items():
-        road_pointcloud[key] = torch.from_numpy(value.astype(np.float32)).to(device)
     features = torch.cat((road_pointcloud["rgb"], road_pointcloud["label"]), dim=1)
     pointclouds = Pointclouds(points=[road_pointcloud["xyz"]], features=[features])
     pointclouds.extend(1)
@@ -68,7 +65,7 @@ def gt_render(dataset, min_xy, max_xy, bev_cam_height, wh=None, resolution=None,
     point_feature = point_feature[0].detach().cpu().numpy()
 
     point_rgb = point_feature[..., :3]  # (H,W,3)
-    bev_label = dataset.remap_semantic(point_feature[..., -2])  # (H,W)
+    bev_label = remap_semantic(point_feature[..., -2], remap_table)  # (H,W)
     bev_mask = point_feature[..., -1] > 0  # (H,W)
     bev_height = bev_cam_height - depth[0, :, :, 0]  # (H,W)
     bev_height = bev_height.detach().cpu().numpy()  # (H,W)
@@ -81,7 +78,7 @@ def gt_render(dataset, min_xy, max_xy, bev_cam_height, wh=None, resolution=None,
     bev_image[~bev_mask] = 0
     cv2.imwrite(os.path.join(save_root, "bev_image.png"), bev_image)
 
-    bev_label_vis = render_semantic(bev_label, dataset.filted_color_map)
+    bev_label_vis = render_semantic(bev_label, render_table)
     bev_label_vis = cv2.cvtColor(bev_label_vis, cv2.COLOR_RGB2BGRA)
     bev_label_vis[~bev_mask] = 0
     cv2.imwrite(os.path.join(save_root, "bev_label.png"), bev_label)
@@ -133,6 +130,7 @@ def train(configs):
         raise NotImplementedError("Dataset not implemented")
 
     dataset = Dataset(dataset_cfg, use_label=opt.seg_loss_weight > 0, use_depth=opt.depth_loss_weight > 0)
+
     logger.info(f"Dataset cameras_extent: {dataset.cameras_extent} - size: {len(dataset)}")
     road = Road(model_cfg, dataset, device=device, vis=train_cfg.vis and GUI_FLAG)
 
@@ -147,10 +145,14 @@ def train(configs):
     bev_cam = road.bev_camera
     bev_cam_height = bev_cam.cam2world[2, 3]
 
-    road_pointcloud = dataset.road_pointcloud
+    road_pointcloud = dataset.road_pointcloud.copy()
     if road_pointcloud is not None:
-        road_point_root = os.path.join(output_root, "road_point")
-        gt_render(dataset, road.min_xy, road.max_xy, bev_cam_height, wh=(bev_cam.image_width, bev_cam.image_height), save_root=road_point_root, device=device)
+        for key, value in road_pointcloud.items():
+            road_pointcloud[key] = torch.from_numpy(value.astype(np.float32)).to(device)
+
+        gt_root = os.path.join(output_root, "road_point")
+        gt_render(road_pointcloud, dataset.label_remaps, dataset.filted_color_map, road.min_xy, road.max_xy, bev_cam_height,
+                  wh=(bev_cam.image_width, bev_cam.image_height), save_root=gt_root, device=device)
 
     if model_cfg.use_exposure:
         exposure_model = ExposureModel(num_camera=len(dataset.camera_names)).to(device)
@@ -171,16 +173,17 @@ def train(configs):
     OPT_SEG = opt.seg_loss_weight > 0
     OPT_DEPTH = opt.depth_loss_weight > 0
     OPT_Z = opt.z_weight > 0 and road_pointcloud is not None
+    road_xyz = road_pointcloud["xyz"]
 
     gaussian_xy = gaussians.get_xyz[:, :2]
     if OPT_SMOOTH > 0:
         smooth_near_idx = road.four_indices  # (n,4) faster
     if OPT_Z:
-        if gaussian_xy.shape[0] < road_pointcloud["xyz"].shape[0]:
-            sample_idx = torch.randint(0, road_pointcloud["xyz"].shape[0], (gaussian_xy.shape[0],))
-            sample_xyz = road_pointcloud["xyz"][sample_idx]
+        if gaussian_xy.shape[0] < road_xyz.shape[0]:
+            sample_idx = torch.randint(0, road_xyz.shape[0], (gaussian_xy.shape[0],))
+            sample_xyz = road_xyz[sample_idx]
         else:
-            sample_xyz = road_pointcloud["xyz"]
+            sample_xyz = road_xyz
         z_near_idx = knn_points(gaussian_xy[None], sample_xyz[None, :, :2], K=1, return_nn=False).idx  # (1, n, 1)
         z_near_idx = z_near_idx.squeeze(0)  # (n,1)
 
@@ -258,7 +261,6 @@ def train(configs):
 
             if OPT_SEG > 0:
                 gt_seg = sample["label"]
-                # 转为long类型
                 gt_seg = gt_seg.long()
                 label_feature = render(viewpoint_cam, gaussians, pipe, bg, render_type="label")
                 render_seg = label_feature["render"]
@@ -283,10 +285,8 @@ def train(configs):
                 surround_filter = torch.logical_and(surround_filter1, surround_filter2)
                 cur_near_idx = z_near_idx[surround_filter]  # (m,k)
                 vis_z = current_gaussian_xyz[:, 2][surround_filter]  # (m,)
-
                 # cur_near_idx = z_near_idx[visibility_filter]  # (m,k)
                 # vis_z = current_gaussian_xyz[:, 2][visibility_filter]  # (m,)
-
                 near_z = knn_gather(sample_xyz[:, 2:].unsqueeze(0), cur_near_idx.unsqueeze(0))  # (1, m, 1, 1)
                 near_z = near_z[0, :, 0, 0]  # (m,k)
                 z_loss = (near_z - vis_z) ** 2
@@ -423,11 +423,11 @@ def train(configs):
         if train_cfg.eval:
             if road_pointcloud is not None:
                 logger.info(f"Just start eval .....")
-                bev_metric = eval_bev_metric(road_point_root, current_root, dataset.num_class)
+                bev_metric = eval_bev_metric(gt_root, current_root, dataset.num_class)
                 for k, v in bev_metric.items():
                     logger.info(f"[Epoch{epoch}] - bev {k}: {v}")
 
-                z_metric = eval_z_metric(road_pointcloud["xyz"], gaussians.get_xyz)
+                z_metric = eval_z_metric(road_xyz, gaussians.get_xyz)
                 logger.info(f"[Epoch{epoch}] - z_metric: {z_metric}")
 
     if train_cfg.save:

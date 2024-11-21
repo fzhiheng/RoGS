@@ -10,3 +10,8 @@ def render_semantic(label, colors):
     label_bgr = cv2.cvtColor(label.astype("uint8"), cv2.COLOR_GRAY2BGR)
     rendered_label = np.array(cv2.LUT(label_bgr, colors))
     return rendered_label
+
+def remap_semantic(semantic_label, remap_table):
+    semantic_label = semantic_label.astype('uint8')
+    remaped_label = np.array(cv2.LUT(semantic_label, remap_table))
+    return remaped_label

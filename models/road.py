@@ -14,7 +14,7 @@ from pytorch3d.transforms import matrix_to_quaternion
 from diff_gaussian_rasterization.scene.cameras import OrthographicCamera
 
 
-def create_hive_vertices(min_coords, max_coords, resolution=0.1):
+def create_hive_vertices(min_coords, max_coords, resolution=0.05):
     """
     Create a flat hive mesh.
 
@@ -46,16 +46,7 @@ def create_hive_vertices(min_coords, max_coords, resolution=0.1):
     return vertices, (num_vertices_x, num_vertices_y), (x_resolution, y_resolution)
 
 
-def create_rect_vertices(min_coords, max_coords, resolution=0.1):
-    """
-    # 初始化一个矩形点云平面
-    Args:
-    # min_coords: 矩形左下顶点
-    # max_coords: 矩形右上顶点
-    # resolution: 分辨率
-    Returns:
-        点云平面,形状
-    """
+def create_rect_vertices(min_coords, max_coords, resolution=0.05):
     box = max_coords - min_coords
     x_length = box[0]
     y_length = box[1]
