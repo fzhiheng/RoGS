@@ -102,8 +102,8 @@ python train.py --config configs/local_nusc_mini.yaml
 
 ```
 @article{feng2024rogs,
-  title={RoGS: Large Scale Road Surface Reconstruction based on 2D Gaussian Splatting},
-  author={Feng, Zhiheng and Wu, Wenhua and Wang, Hesheng},
+  title={RoGs: Large Scale Road Surface Reconstruction with Meshgrid Gaussian},
+  author={Feng, Zhiheng and Wu, Wenhua and Deng, Tianchen and Wang, Hesheng},
   journal={arXiv preprint arXiv:2405.14342},
   year={2024}
 }
